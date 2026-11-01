@@ -1,0 +1,299 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wikipedia Dataset Explorer</title>
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background: #f4f6f9;
+            color: #222;
+        }
+
+        header {
+            background: #263b59;
+            color: white;
+            padding: 25px;
+            text-align: center;
+        }
+
+        header p {
+            margin-top: 8px;
+        }
+
+        .container {
+            max-width: 1100px;
+            margin: 30px auto;
+            padding: 15px;
+        }
+
+        .stats {
+            background: white;
+            padding: 25px;
+            border-radius: 10px;
+            text-align: center;
+            margin-bottom: 25px;
+            box-shadow: 0 2px 8px #ddd;
+        }
+
+        .stats h2 {
+            color: #263b59;
+            font-size: 32px;
+            margin-top: 10px;
+        }
+
+        .search-box {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .search-box input {
+            flex: 1;
+            padding: 12px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            font-size: 15px;
+        }
+
+        .search-box button {
+            padding: 12px 22px;
+            background: #263b59;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 15px;
+        }
+
+        .search-box button:hover {
+            background: #1769aa;
+        }
+
+        .articles {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+        }
+
+        .article {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px #ddd;
+        }
+
+        .article h3 {
+            color: #263b59;
+            margin-bottom: 12px;
+        }
+
+        .article p {
+            line-height: 1.6;
+            margin-bottom: 12px;
+        }
+
+        .article a {
+            color: #1769aa;
+            text-decoration: none;
+            font-weight: bold;
+        }
+
+        .article a:hover {
+            text-decoration: underline;
+        }
+
+        #status {
+            text-align: center;
+            margin: 20px;
+        }
+
+        @media (max-width: 600px) {
+            .search-box {
+                flex-direction: column;
+            }
+
+            .search-box button {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <header>
+        <h1>Wikipedia Dataset Explorer</h1>
+        <p>Explore articles from Wikimedia's Structured Wikipedia Dataset</p>
+    </header>
+
+    <div class="container">
+
+        <section class="stats">
+            <h3>Total Wikipedia Articles</h3>
+            <h2 id="totalArticles">Loading...</h2>
+            <p>Dataset Columns: <span id="totalColumns">Loading...</span></p>
+        </section>
+
+        <h2 style="margin-bottom: 20px;">Wikipedia Articles</h2>
+
+        <div class="search-box">
+            <input
+                type="text"
+                id="searchInput"
+                placeholder="Search Wikipedia articles..."
+            >
+            <button onclick="searchArticles()">Search</button>
+            <button onclick="loadArticles()">Show All</button>
+        </div>
+
+        <p id="status">Loading articles...</p>
+
+        <div class="articles" id="articleContainer"></div>
+
+    </div>
+
+    <script>
+        const API_URL = "http://127.0.0.1:8000";
+
+        // Load dataset statistics
+        async function loadStats() {
+            const response = await fetch(`${API_URL}/stats`);
+            const data = await response.json();
+
+            document.getElementById("totalArticles").textContent =
+                data.total_articles.toLocaleString();
+
+            document.getElementById("totalColumns").textContent =
+                data.total_columns;
+        }
+
+        // Display article cards
+        function displayArticles(articles) {
+            const container = document.getElementById("articleContainer");
+            container.innerHTML = "";
+
+            if (articles.length === 0) {
+                container.textContent = "No articles found.";
+                return;
+            }
+
+            articles.forEach(article => {
+                const card = document.createElement("div");
+                card.className = "article";
+
+                const title = document.createElement("h3");
+                title.textContent = article.name;
+
+                const description = document.createElement("p");
+                description.textContent =
+                    article.description ||
+                    article.abstract ||
+                    "No description available.";
+
+                const link = document.createElement("a");
+                link.href = article.url;
+                link.textContent = "Read on Wikipedia";
+                link.target = "_blank";
+                link.rel = "noopener noreferrer";
+
+                card.append(title, description, link);
+                container.appendChild(card);
+            });
+        }
+
+        // Load default articles
+        async function loadArticles() {
+            try {
+                const response = await fetch(`${API_URL}/articles`);
+
+                if (!response.ok) {
+                    throw new Error("Unable to load articles");
+                }
+
+                const articles = await response.json();
+
+                displayArticles(articles);
+
+                document.getElementById("status").textContent =
+                    articles.length + " articles loaded successfully.";
+
+            } catch (error) {
+                console.error("Article loading error:", error);
+
+                document.getElementById("status").textContent =
+                    "Unable to load articles. Please check the backend.";
+            }
+        }
+
+        // Search Wikipedia articles
+        async function searchArticles() {
+            const query =
+                document.getElementById("searchInput").value.trim();
+
+            if (!query) {
+                alert("Please enter an article name.");
+                return;
+            }
+
+            try {
+                const response = await fetch(
+                    `${API_URL}/search?q=${encodeURIComponent(query)}`
+                );
+
+                if (!response.ok) {
+                    throw new Error("Search request failed");
+                }
+
+                const articles = await response.json();
+
+                displayArticles(articles);
+
+                document.getElementById("status").textContent =
+                    articles.length + " matching articles found.";
+
+            } catch (error) {
+                console.error("Search error:", error);
+
+                document.getElementById("status").textContent =
+                    "Unable to connect to the backend.";
+            }
+        }
+
+        // Search when Enter is pressed
+        document.getElementById("searchInput").addEventListener(
+            "keydown",
+            function(event) {
+                if (event.key === "Enter") {
+                    searchArticles();
+                }
+            }
+        );
+
+        // Initialize dashboard
+        async function initialize() {
+            try {
+                await loadStats();
+                await loadArticles();
+            } catch (error) {
+                console.error("Initialization error:", error);
+
+                document.getElementById("status").textContent =
+                    "Unable to connect to the backend. Please check the API server.";
+            }
+        }
+
+        initialize();
+    </script>
+
+</body>
+</html>
